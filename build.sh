@@ -12,6 +12,9 @@ mkdir -p "$MACOS_DIR"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 cp "$DIR/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
+if [ -f "$DIR/Resources/AppIcon.icns" ]; then
+    cp "$DIR/Resources/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+fi
 
 swiftc -O "$DIR/CalendarBar.swift" -o "$MACOS_DIR/$APP_NAME"
 

@@ -10,12 +10,24 @@ class CalendarBarDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize menu bar item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        updateStatusIcon(isOngoing: false)
         if let button = statusItem.button {
-            button.title = "📅 Checking..."
+            button.title = " Checking..."
         }
 
         // Request permissions and start
         checkAndRequestCalendarAccess()
+    }
+
+    func updateStatusIcon(isOngoing: Bool) {
+        guard let button = statusItem?.button else { return }
+        let symbolName = isOngoing ? "calendar.badge.clock" : "calendar"
+        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+        if let icon = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Calendar")?.withSymbolConfiguration(config) {
+            icon.isTemplate = true
+            button.image = icon
+            button.imagePosition = .imageLeading
+        }
     }
 
     func checkAndRequestCalendarAccess() {
@@ -85,8 +97,9 @@ class CalendarBarDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showAccessDenied() {
+        updateStatusIcon(isOngoing: false)
         if let button = statusItem.button {
-            button.title = "📅 Cal Access Needed"
+            button.title = " Cal Access Needed"
         }
         let menu = NSMenu()
         let info = NSMenuItem(title: "Calendar access is disabled.", action: nil, keyEquivalent: "")
@@ -151,35 +164,38 @@ class CalendarBarDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         if let current = currentEvent {
-            // Meeting in progress
+            updateStatusIcon(isOngoing: true)
             let endTimeStr = timeFormatter.string(from: current.endDate)
             let truncated = truncate(current.title ?? "Meeting", limit: 20)
-            statusItem.button?.title = "🔴 \(truncated) (until \(endTimeStr))"
+            statusItem.button?.title = " 🔴 \(truncated) (until \(endTimeStr))"
 
             buildEventDetailMenu(menu: menu, event: current, statusLabel: "Currently Happening (ends \(endTimeStr))")
         } else if let next = nextUpcoming {
+            updateStatusIcon(isOngoing: false)
             let startTimeStr = timeFormatter.string(from: next.startDate)
             let truncated = truncate(next.title ?? "Event", limit: 22)
             
             if calendar.isDateInToday(next.startDate) {
-                statusItem.button?.title = "📅 \(startTimeStr) \(truncated)"
+                statusItem.button?.title = " \(startTimeStr) \(truncated)"
                 buildEventDetailMenu(menu: menu, event: next, statusLabel: "Today at \(startTimeStr)")
             } else if calendar.isDateInTomorrow(next.startDate) {
-                statusItem.button?.title = "📅 Tomorrow: \(startTimeStr) \(truncated)"
+                statusItem.button?.title = " Tomorrow: \(startTimeStr) \(truncated)"
                 buildEventDetailMenu(menu: menu, event: next, statusLabel: "Tomorrow at \(startTimeStr)")
             } else {
                 let df = DateFormatter()
                 df.dateFormat = "EEE h:mm a"
                 let dateStr = df.string(from: next.startDate)
-                statusItem.button?.title = "📅 \(dateStr) \(truncated)"
+                statusItem.button?.title = " \(dateStr) \(truncated)"
                 buildEventDetailMenu(menu: menu, event: next, statusLabel: dateStr)
             }
         } else if let allDay = todayAllDay {
+            updateStatusIcon(isOngoing: false)
             let truncated = truncate(allDay.title ?? "Event", limit: 24)
-            statusItem.button?.title = "📅 Today: \(truncated)"
+            statusItem.button?.title = " Today: \(truncated)"
             buildEventDetailMenu(menu: menu, event: allDay, statusLabel: "All Day Today")
         } else {
-            statusItem.button?.title = "📅 No Upcoming Events"
+            updateStatusIcon(isOngoing: false)
+            statusItem.button?.title = " No Upcoming Events"
             let noEventItem = NSMenuItem(title: "No upcoming events in the next 7 days", action: nil, keyEquivalent: "")
             noEventItem.isEnabled = false
             menu.addItem(noEventItem)
