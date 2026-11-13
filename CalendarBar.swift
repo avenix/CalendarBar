@@ -1,5 +1,6 @@
 import AppKit
 import EventKit
+import ServiceManagement
 
 class CalendarBarDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
@@ -194,6 +195,11 @@ class CalendarBarDelegate: NSObject, NSApplicationDelegate {
         refreshItem.target = self
         menu.addItem(refreshItem)
 
+        let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        loginItem.target = self
+        loginItem.state = isLaunchAtLoginEnabled() ? .on : .off
+        menu.addItem(loginItem)
+
         menu.addItem(NSMenuItem.separator())
         let quitItem = NSMenuItem(title: "Quit CalendarBar", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
@@ -283,6 +289,55 @@ class CalendarBarDelegate: NSObject, NSApplicationDelegate {
         if let url = sender.representedObject as? URL {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    func isLaunchAtLoginEnabled() -> Bool {
+        if #available(macOS 13.0, *) {
+            if SMAppService.mainApp.status == .enabled {
+                return true
+            }
+        }
+        let script = "tell application \"System Events\" to return exists (login item \"CalendarBar\")"
+        if let appleScript = NSAppleScript(source: script) {
+            var error: NSDictionary?
+            let result = appleScript.executeAndReturnError(&error)
+            return result.booleanValue
+        }
+        return false
+    }
+
+    @objc func toggleLaunchAtLogin() {
+        let currentlyEnabled = isLaunchAtLoginEnabled()
+        var handled = false
+
+        if #available(macOS 13.0, *) {
+            do {
+                if currentlyEnabled {
+                    try SMAppService.mainApp.unregister()
+                } else {
+                    try SMAppService.mainApp.register()
+                }
+                handled = true
+            } catch {
+                handled = false
+            }
+        }
+
+        if !handled {
+            let appPath = Bundle.main.bundlePath
+            let script: String
+            if currentlyEnabled {
+                script = "tell application \"System Events\" to delete (every login item whose name is \"CalendarBar\")"
+            } else {
+                script = "tell application \"System Events\" to make login item at end with properties {name:\"CalendarBar\", path:\"\(appPath)\", hidden:false}"
+            }
+            if let appleScript = NSAppleScript(source: script) {
+                var error: NSDictionary?
+                appleScript.executeAndReturnError(&error)
+            }
+        }
+
+        updateNextEvent()
     }
 
     @objc func openCalendarApp() {
